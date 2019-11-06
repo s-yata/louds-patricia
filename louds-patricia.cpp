@@ -347,6 +347,9 @@ class PatriciaImpl {
                 break;
               }
             }
+            if (i == query.length()) {
+              return -1;
+            }
           }
           break;
         }
