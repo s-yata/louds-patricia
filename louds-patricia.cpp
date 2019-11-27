@@ -1,14 +1,34 @@
-#include <x86intrin.h>
+#include "louds-patricia.hpp"
+
+#ifdef _MSC_VER
+ #include <intrin.h>
+ #include <immintrin.h>
+#else  // _MSC_VER
+ #include <x86intrin.h>
+#endif  // _MSC_VER
 
 #include <cassert>
 #include <queue>
 #include <vector>
 
-#include "louds-patricia.hpp"
-
 namespace louds {
-
 namespace {
+
+uint64_t Popcnt(uint64_t x) {
+#ifdef _MSC_VER
+  return __popcnt64(x);
+#else  // _MSC_VER
+  return __builtin_popcountll(x);
+#endif  // _MSC_VER
+}
+
+uint64_t Ctz(uint64_t x) {
+#ifdef _MSC_VER
+  return _tzcnt_u64(x);
+#else  // _MSC_VER
+  return __builtin_ctzll(x);
+#endif  // _MSC_VER
+}
 
 struct BitVector {
   struct Rank {
@@ -65,12 +85,12 @@ struct BitVector {
 
         uint64_t word_id = (block_id * 4) + j;
         uint64_t word = words[word_id];
-        uint64_t n_pops = __builtin_popcountll(word);
+        uint64_t n_pops = Popcnt(word);
         uint64_t new_n_ones = n_ones + n_pops;
         if (((n_ones + 255) / 256) != ((new_n_ones + 255) / 256)) {
           uint64_t count = n_ones;
           while (word != 0) {
-            uint64_t pos = __builtin_ctzll(word);
+            uint64_t pos = Ctz(word);
             if (count % 256 == 0) {
               selects.push_back(((word_id * 64) + pos) / 256);
               break;
@@ -96,7 +116,7 @@ struct BitVector {
     if (rel_id != 0) {
       n += ranks[rank_id].rels[rel_id - 1];
     }
-    n += __builtin_popcountll(words[word_id] & ((1UL << bit_id) - 1));
+    n += Popcnt(words[word_id] & ((1UL << bit_id) - 1));
     return n;
   }
   // select returns the position of the (i+1)-th 1-bit.
@@ -134,8 +154,7 @@ struct BitVector {
       word_id += 3;
       i -= ranks[rank_id].rels[2];
     }
-    return (word_id * 64) + __builtin_ctzll(
-      _pdep_u64(1UL << i, words[word_id]));
+    return (word_id * 64) + Ctz(_pdep_u64(1UL << i, words[word_id]));
   }
 
   uint64_t size() const {
@@ -324,7 +343,7 @@ class PatriciaImpl {
           word = louds_.words[end / 64];
         }
       }
-      end += __builtin_ctzll(word);
+      end += Ctz(word);
       uint64_t begin = node_pos - node_id - 1;
       end = begin + end - node_pos;
 
